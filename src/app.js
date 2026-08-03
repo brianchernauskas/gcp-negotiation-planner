@@ -76,6 +76,8 @@ function collectStep(step) {
     state.desiredTerm = document.getElementById('desired-term').value;
     state.cudUtilization = document.getElementById('cud-utilization').value;
     state.chargebackIsolation = document.getElementById('chargeback-isolation')?.value || '';
+    state.flexCudFootprint = document.getElementById('flex-cud-footprint')?.value || '';
+    state.casc = document.getElementById('casc')?.value || '';
     state.currentDiscounts = [...document.querySelectorAll('#current-discounts input:checked')].map(i => i.value);
     state.supportTier = document.getElementById('support-tier').value;
   }
@@ -173,6 +175,13 @@ function getLeverageScore(s) {
   const relMap = { strategic: 10, strong: 8, moderate: 5, poor: 2, none: 0 };
   score += relMap[s.relationshipQuality] ?? 3;
   score += (s.strategicPlans?.length ?? 0) * 1.5;
+  // Flex CUD consolidation opportunity
+  if (s.flexCudFootprint === 'full-mix') score += 6;
+  else if (s.flexCudFootprint === 'vms-gke' || s.flexCudFootprint === 'vms-cloudrun') score += 4;
+  // CASC — unlocks additional negotiated CUD discount
+  if (s.casc === 'yes-active') score += 8;
+  else if (s.casc === 'yes-negotiating') score += 5;
+  else if (s.casc === 'no-eligible') score += 2;
   return Math.min(Math.round(score), 100);
 }
 
@@ -402,6 +411,27 @@ function buildTactics(s, tier) {
     });
   }
 
+  if (s.flexCudFootprint === 'full-mix' || s.flexCudFootprint === 'vms-gke' || s.flexCudFootprint === 'vms-cloudrun') {
+    tactics.push({
+      title: 'Consolidate to a Single Flex CUD Across Your Compute Footprint',
+      desc: 'Flex CUDs now cover GKE Autopilot, GKE Standard, Cloud Run, and Compute Engine VMs under a single commitment (expanded Sept 2025). Rather than negotiating separate resource CUDs per service, a single Flex CUD maximizes coverage across your entire eligible compute footprint, simplifies your commitment structure, and gives you a cleaner, larger number to use as leverage in your EA or PPA discussion with Google.',
+      impact: 'high',
+    });
+  }
+  if (s.casc === 'no-eligible') {
+    tactics.push({
+      title: 'Initiate a CASC Negotiation in This Cycle',
+      desc: 'Your spend level qualifies for a Customer Annual Spend Commitment (CASC) — a Google EA structure that unlocks 3–7 percentage points of additional CUD discount above public rates. This is separate from and additive to your standard CUD discounts. Ask your Google account team to initiate a CASC conversation now. Customers who wait until the next renewal cycle miss a full year of incremental savings.',
+      impact: 'high',
+    });
+  }
+  if (s.casc === 'yes-active') {
+    tactics.push({
+      title: 'Reference Your CASC to Unlock Additional CUD Discount',
+      desc: 'Your active CASC entitles you to negotiate 3–7pp of additional CUD discount above the public sleeve. Bring this up explicitly in any new commitment or CUD renewal discussion — don\'t assume your account team has applied it. Request the maximum negotiated rate in writing as part of your EA or PPA terms.',
+      impact: 'high',
+    });
+  }
   // Vertex AI — Google's top growth priority
   if (s.useCases.includes('vertex-ai') || s.strategicPlans?.includes('ai-expansion')) {
     tactics.push({
@@ -669,6 +699,15 @@ function buildAlerts(s, tier) {
   }
   if (s.chargebackIsolation === 'planning') {
     alerts.push({ type: 'warning', icon: '⚠️', text: '<strong>Review CUD Scope Before Implementing Chargeback.</strong> GCP now defaults new billing accounts to billing-account-level CUD sharing (changed June 2026). If you plan to use project-level chargeback, structure your billing accounts and CUD scope accordingly before committing — retrofitting after the fact requires restructuring active commitments.' });
+  }
+  if (s.flexCudFootprint === 'full-mix' || s.flexCudFootprint === 'vms-gke' || s.flexCudFootprint === 'vms-cloudrun') {
+    alerts.push({ type: 'success', icon: '🟢', text: '<strong>Flex CUD Consolidation Opportunity.</strong> Your mixed compute footprint (VMs + GKE/Cloud Run) qualifies for a single Flex CUD that covers all eligible spend. Flex CUDs were expanded in 2025 to include GKE Autopilot and Cloud Run — rather than negotiating separate commitments per service, consolidate into one Flex CUD to maximize coverage and simplify your commitment structure.' });
+  }
+  if (s.casc === 'no-eligible') {
+    alerts.push({ type: 'info', icon: 'ℹ️', text: '<strong>CASC Qualification Opportunity.</strong> Your spend level likely qualifies for a Customer Annual Spend Commitment (CASC). Enterprise customers with a CASC can negotiate an additional 3–7 percentage points of CUD discount outside the public sleeve — this is separate from and additive to standard CUD discounts. Ask your Google account team to initiate a CASC discussion in this negotiation cycle.' });
+  }
+  if (s.casc === 'yes-active') {
+    alerts.push({ type: 'success', icon: '🟢', text: '<strong>CASC in Place — Maximize It.</strong> Your active CASC entitles you to negotiate additional CUD discounts (3–7pp above public rates). Ensure your account team has applied this in your current CUD pricing, and reference it explicitly when discussing any new commitment or renewal.' });
   }
   return alerts;
 }

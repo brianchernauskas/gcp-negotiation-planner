@@ -234,6 +234,27 @@
             </select>
           </div>
           <div class="form-group">
+            <label for="flex-cud-footprint">Compute Footprint (Flex CUD consolidation opportunity)</label>
+            <select id="flex-cud-footprint">
+              <option value="">Select…</option>
+              <option value="vms-only">VMs only (Compute Engine)</option>
+              <option value="vms-gke">VMs + GKE Standard/Autopilot</option>
+              <option value="vms-cloudrun">VMs + Cloud Run</option>
+              <option value="full-mix">VMs + GKE + Cloud Run (full mix)</option>
+              <option value="gke-cloudrun-only">GKE / Cloud Run only (no VMs)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="casc">Customer Annual Spend Commitment (CASC)</label>
+            <select id="casc">
+              <option value="">Select…</option>
+              <option value="yes-active">Yes — active CASC in place</option>
+              <option value="yes-negotiating">In negotiation for a CASC</option>
+              <option value="no-eligible">No CASC — but spend likely qualifies</option>
+              <option value="no-small">No CASC — spend too small to qualify</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label for="support-tier">Current GCP Support Tier</label>
             <select id="support-tier">
               <option value="">Select support tier…</option>
