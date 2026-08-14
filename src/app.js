@@ -25,8 +25,8 @@ function validateStep(step) {
   const required = {
     1: ['industry', 'growth-rate', 'gcp-tenure', 'contract-type'],
     2: ['annual-spend', 'workspace-spend', 'spend-growth', 'renewal-timeline'],
-    3: ['workload-type', 'regions', 'optimization-status'],
-    4: ['relationship-quality', 'negotiation-goals', 'switching-from'],
+    3: ['workload-type', 'optimization-status'],
+    4: ['relationship-quality', 'switching-from'],
   };
   let ok = true;
   (required[step] || []).forEach(id => {
@@ -84,7 +84,6 @@ function collectStep(step) {
   if (step === 3) {
     state.useCases = [...document.querySelectorAll('#use-cases .selected')].map(c => c.dataset.value);
     state.workloadType = document.getElementById('workload-type').value;
-    state.regions = document.getElementById('regions').value;
     state.spotVmUsage = document.getElementById('spot-vm-usage').value;
     state.optimizationStatus = document.getElementById('optimization-status').value;
     state.bigqueryPricing = document.getElementById('bigquery-pricing').value;
@@ -92,10 +91,7 @@ function collectStep(step) {
   if (step === 4) {
     state.multicloud = document.querySelector('#multicloud .selected')?.dataset.value;
     state.relationshipQuality = document.getElementById('relationship-quality').value;
-    state.previousNegotiation = document.getElementById('previous-negotiation').value;
     state.strategicPlans = [...document.querySelectorAll('#strategic-plans input:checked')].map(i => i.value);
-    state.negotiationGoals = document.getElementById('negotiation-goals').value;
-    state.internalChampion = document.getElementById('internal-champion').value;
     state.switchingFrom = document.getElementById('switching-from').value;
   }
 }
@@ -197,6 +193,9 @@ function getLeverageScore(s) {
   score += timingMap[s.renewalTimeline] ?? 5;
   const relMap = { strategic: 10, strong: 8, moderate: 5, poor: 2, none: 0 };
   score += relMap[s.relationshipQuality] ?? 3;
+  // Tenure (0–5) — parity with the AWS and Azure planners
+  const tenureMap = { '5plus': 5, '3-5': 4, '1-3': 2, 'new': 0 };
+  score += tenureMap[s.gcpTenure] ?? 2;
   score += (s.strategicPlans?.length ?? 0) * 1.5;
   // Flex CUD consolidation opportunity
   if (s.flexCudFootprint === 'full-mix') score += 6;
@@ -270,7 +269,7 @@ function buildStrategyHTML(s) {
     <div class="strategy-section">
       <div class="section-header"><span class="section-icon">💰</span><h3>GCP Discount Stack: What You Should Be Getting</h3><span class="section-badge">${recommendedVehicle(s, tier)}</span></div>
       <div class="section-content">
-        ${discountStackHTML(s, tier, discount)}
+        ${discountStackHTML(s, tier, discount, proxima)}
       </div>
     </div>
 
@@ -346,7 +345,9 @@ function buildStrategyHTML(s) {
 }
 
 // ─── GCP Discount Stack (unique to GCP) ──────────────────────────────────────
-function discountStackHTML(s, tier, discount) {
+// `proxima` must be passed in — it is scoped to buildStrategyHTML, and
+// referencing it here threw a ReferenceError that broke strategy generation.
+function discountStackHTML(s, tier, discount, proxima) {
   const hasSUD = s.useCases.includes('compute') || s.useCases.includes('gke');
   const hasSpotOpportunity = s.workloadType === 'batch' || s.workloadType === 'mixed' || s.workloadType === 'dev-heavy';
   const hasWorkspace = s.workspaceSpend !== 'none' && s.workspaceSpend;
@@ -406,6 +407,10 @@ function buildDiscountFactors(s, tier, discount) {
   if (s.desiredTerm === '3yr') rows.push(['3-year commitment term', '+3–5%', 'green']);
   if (s.strategicPlans?.includes('migrate-to-gcp')) rows.push(['Migration commitment — new GCP footprint', '+2–5%', 'green']);
   if (s.growthRate === 'hypergrowth' || s.growthRate === 'fast') rows.push(['High-growth trajectory (future revenue)', '+1–3%', 'green']);
+  if (s.spendGrowth === 'hypergrowth' || s.spendGrowth === 'fast') rows.push(['GCP consumption growing fast (expanding footprint)', '+1–3%', 'green']);
+  else if (s.spendGrowth === 'declining') rows.push(['GCP consumption declining — weakens the growth argument', '−2–4%', 'red']);
+  if (s.gcpTenure === '5plus') rows.push(['Long-tenured customer (switching cost is real to Google)', '+0–2%', 'green']);
+  if (s.spotVmUsage === 'heavy' || s.spotVmUsage === 'moderate') rows.push(['Heavy Spot usage — less committed-eligible spend to bargain with', '−1–3%', 'red']);
   if (s.cudUtilization === 'over100') rows.push(['Exceeded prior CUD commitment (strong signal)', '+1–2%', 'green']);
   if (s.cudUtilization === 'under70') rows.push(['CUD underutilization — Google may resist higher discount', '−2–4%', 'red']);
   if (!rows.length) return '';
@@ -572,13 +577,59 @@ function buildTactics(s, tier) {
     });
   }
 
+  // Growth narrative — parity with the AWS and Azure planners
+  if (s.growthRate === 'hypergrowth' || s.growthRate === 'fast' || s.spendGrowth === 'hypergrowth' || s.spendGrowth === 'fast') {
+    tactics.push({
+      title: 'Build a Growth Narrative with Documented Projections',
+      desc: 'Google discounts today\'s spend but underwrites tomorrow\'s, and it is hungrier for growth than either AWS or Microsoft. Bring a three-year GCP projection backed by business data — product roadmap, migration schedule, AI workload plans — and commit at a level that reflects where you are heading. A documented projection makes a higher commitment tier defensible internally as well as to Google, and growth stories carry more weight here than at the other two hyperscalers.',
+      impact: 'medium',
+    });
+  } else if (s.spendGrowth === 'declining') {
+    tactics.push({
+      title: 'Commit Conservatively Against a Declining Baseline',
+      desc: 'Your GCP consumption is falling, which means a commitment sized on historical spend will be underconsumed — and shortfall exposure is yours, not Google\'s. Size the commit to a defensible floor rather than last year\'s run rate. Be direct with the account team about the trajectory: Google would rather hold a smaller commitment it can renew than book a larger one that ends in a shortfall dispute.',
+      impact: 'high',
+    });
+  }
+
+  // Spot usage changes what is actually available to commit
+  if (s.spotVmUsage === 'heavy' || s.spotVmUsage === 'moderate') {
+    tactics.push({
+      title: 'Exclude Spot Capacity From Your Committed Baseline',
+      desc: `You are running ${s.spotVmUsage === 'heavy' ? 'more than half' : '25–50%'} of eligible workloads on Spot. Spot spend is already deeply discounted and is not a sensible base for a CUD or spend commitment. Calculate your committed-use baseline on on-demand and reserved consumption only — if Google sizes the commitment on total compute spend including Spot, you will be committing to a number your steady-state workload cannot absorb. Make the exclusion explicit in the term sheet rather than assumed.`,
+      impact: 'high',
+    });
+  } else if (s.spotVmUsage === 'none' && (s.workloadType === 'batch' || s.workloadType === 'dev-heavy')) {
+    tactics.push({
+      title: 'Model Spot VMs Before Committing Batch Workloads',
+      desc: 'Your estate is batch or dev/test heavy but runs no Spot capacity. Spot pricing on GCP is substantially below on-demand for interruption-tolerant work, and moving eligible workloads there lowers the baseline you need to commit to at all. Model this before the negotiation, not after — committing to spend you could have avoided is the most expensive kind of commitment.',
+      impact: 'medium',
+    });
+  }
+
+  // Public sector — mirrors the AWS planner's FedRAMP treatment
+  if ((s.compliance || []).includes('fedramp') || s.industry === 'government') {
+    tactics.push({
+      title: 'Use Assured Workloads Requirements as Differentiation',
+      desc: 'Your regulatory profile makes you a strategically valuable account. Google has invested heavily in Assured Workloads and public-sector compliance, and retaining a reference-able regulated customer matters to them beyond your spend. Use it: request funded compliance advisory hours, accelerated authorization support, and enhanced SLAs as part of the agreement rather than as separate paid engagements.',
+      impact: 'medium',
+    });
+  }
+
   tactics.push({
     title: 'Request Innovation Credits for New Service Exploration',
     desc: 'Google often includes "innovation" or "transformation" credits — a pool of GCP credits earmarked for experimenting with new services. These have real dollar value and are additive to your EA discount. Ask specifically for a credit pool for Vertex AI, Looker, or other services you\'re evaluating. These credits are low-cost concessions for Google and high-value for customers exploring new services.',
     impact: 'low',
   });
 
-  return tactics.slice(0, 10);
+  // Sort by impact before capping. Without this, a high-impact tactic added
+  // late in the function is silently dropped while a low-impact early one survives.
+  const rank = { high: 0, medium: 1, low: 2 };
+  return tactics
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (rank[a.t.impact] ?? 1) - (rank[b.t.impact] ?? 1) || a.i - b.i)
+    .map(x => x.t)
+    .slice(0, 12);
 }
 
 // ─── Timeline ─────────────────────────────────────────────────────────────────
@@ -660,6 +711,9 @@ function buildConcessions(s, tier) {
     items.push({ icon: '🤖', title: 'Vertex AI / Gemini Credits', desc: 'Innovation credits specifically for Vertex AI and Gemini workload adoption.', priority: 'must' });
   }
   items.push({ icon: '🌐', title: 'CUD + EA Stacking Confirmation', desc: 'Written confirmation that EA discount applies on top of (not instead of) CUD pricing.', priority: 'must' });
+  if ((s.compliance || []).includes('hipaa') || (s.compliance || []).includes('pci') || (s.compliance || []).includes('fedramp')) {
+    items.push({ icon: '🛡️', title: 'Compliance Acceleration Support', desc: 'Funded compliance advisory hours and access to Google Assured Workloads specialists.', priority: 'should' });
+  }
   if (s.supportTier !== 'premium') {
     items.push({ icon: '🎧', title: 'Premier Support Inclusion / Discount', desc: 'Include or discount Premium Support with a named TAM in the EA package.', priority: tier >= 3 ? 'must' : 'should' });
   }
@@ -690,6 +744,12 @@ function buildRisks(s, tier) {
   risks.push({ level: 'medium', title: 'CUD + EA Stacking Not Guaranteed', desc: 'Some Google agreements don\'t explicitly confirm EA discounts stack on CUDs. Confirm this in writing — the omission can cost millions.' });
   risks.push({ level: 'medium', title: 'Auto-Renewal Clauses', desc: 'EA and CUDs can auto-renew at current or worse terms. Negotiate explicit 90-day renewal notification windows.' });
   if (s.desiredTerm === '3yr') risks.push({ level: 'medium', title: '3-Year Lock-in Risk', desc: '3-year CUDs offer the best rates but are inflexible. Negotiate mid-term review rights and service substitution options.' });
+  if (s.spendGrowth === 'declining') {
+    risks.push({ level: 'medium', title: 'Declining GCP Consumption', desc: 'Falling consumption materially weakens your position — Google allocates its best commercial terms to accounts that are growing, and its competitive aggression is aimed at winning new workloads rather than defending shrinking ones. Size the commitment to a realistic floor and steer the conversation toward what you are adding rather than what you are losing.' });
+  }
+  if ((s.compliance || []).includes('hipaa') || (s.compliance || []).includes('fedramp')) {
+    risks.push({ level: 'low', title: 'Compliance-Specific Contract Language', desc: 'Regulatory commitments should be written into BAAs and Assured Workloads addenda as part of the main agreement. Left to a separate workstream they routinely reappear later as paid add-ons.' });
+  }
   risks.push({ level: 'low', title: 'Account Team Turnover', desc: 'Google account teams turn over. All commitments must be contractually documented — not just in emails from your CSE.' });
   if (tier <= 1) risks.push({ level: 'low', title: 'Below EA Threshold', desc: 'Formal EA negotiations typically start at $1M+ spend. Focus on CUDs now; build growth narrative for next cycle.' });
   return risks;
