@@ -353,12 +353,15 @@ function discountStackHTML(s, tier, discount, proxima) {
   const hasWorkspace = s.workspaceSpend !== 'none' && s.workspaceSpend;
   const cudActive = s.currentDiscounts.includes('cud-resource') || s.currentDiscounts.includes('cud-spend');
 
+  const hasAI = s.useCases.includes('vertex-ai') || s.strategicPlans?.includes('ai-expansion');
+
   const layers = [
     { label: 'Layer 1: Sustained Use Discounts (SUDs)', value: 'Up to 20–30% off', note: 'Automatic — no action needed for Compute Engine VMs running >25% of month', active: hasSUD, color: '#34A853' },
     { label: 'Layer 2: Spot / Preemptible VMs', value: 'Up to 60–91% off', note: 'For fault-tolerant batch/dev workloads — shift these off CUD baseline before committing', active: hasSpotOpportunity, color: '#FBBC04' },
     { label: 'Layer 3: Committed Use Discounts (CUDs)', value: '28–55% off on-demand', note: 'Resource CUDs (vCPU/RAM) for stable workloads; Spend CUDs for flexibility. Stack on top of SUDs.', active: true, color: '#4285F4' },
-    { label: 'Layer 4: EA / Private Pricing Agreement', value: `${discount.lo}–${discount.hi}% additional`, note: 'Negotiated discount on top of CUD+SUD pricing. Requires $1M+ spend and formal Google engagement.', active: tier >= 1, color: '#EA4335' },
-    { label: 'Layer 5: GCP + Workspace Bundle', value: '+5–15% blended improvement', note: 'Consolidating Workspace + GCP into one CASC agreement yields 15–20% better blended rates at $10M+ combined.', active: hasWorkspace, color: '#9334E6' },
+    { label: 'Layer 4: Vertex AI Commitment Pricing', value: '18–32% (38–52% PT)', note: 'Vertex AI and Gemini consumption counts toward your CUD and PPA commitments. Inside a CUD, expect 18–32% below published rates; Provisioned Throughput inside a CUD reaches 38–52% below standalone on-demand. This is the fastest-growing and least-scrutinized meter in most Google deals — model it explicitly rather than letting it ride on the blended rate.', active: hasAI, color: '#00ACC1' },
+    { label: 'Layer 5: EA / Private Pricing Agreement', value: `${discount.lo}–${discount.hi}% additional`, note: 'Negotiated discount on top of CUD+SUD pricing. Requires $1M+ spend and formal Google engagement.', active: tier >= 1, color: '#EA4335' },
+    { label: 'Layer 6: GCP + Workspace Bundle', value: '+5–15% blended improvement', note: 'Consolidating Workspace + GCP into one CASC agreement yields 15–20% better blended rates at $10M+ combined.', active: hasWorkspace, color: '#9334E6' },
   ];
 
   const stackHTML = layers.map(l => `
@@ -376,10 +379,16 @@ function discountStackHTML(s, tier, discount, proxima) {
 
   const breakdown = buildDiscountFactors(s, tier, discount);
 
+  // Spend-based CUDs moved to a direct-discount ("multiprice") billing model in
+  // early 2026. Savings now land as discounted rates in billing data rather than
+  // as separate credits, which changes how realized savings are measured.
+  const multipriceNote = `<div class="alert alert-info" style="margin-top:14px;"><span class="alert-icon">🧾</span><div><strong>Spend-based CUD savings are now billed as direct discounts, not credits.</strong> Google completed the migration of spend-based CUDs to the multiprice model in early 2026. Eligible usage is billed at the discounted commitment rate directly, so the separate credit line that used to require reconciliation is gone and realized savings are visible in billing data immediately. Two practical consequences: any internal savings report or chargeback calculation still built on credit reconciliation is measuring something that no longer exists and will understate or double-count your discount, and when you ask Google to model CUD scenarios, insist the comparison is stated at effective discounted rates so it lines up with what your billing export will actually show.</div></div>`;
+
   return `
     <div style="margin-bottom:16px;">
       <div style="font-size:.85rem;font-weight:600;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">GCP's Unique Discount Stack</div>
       ${stackHTML}
+      ${multipriceNote}
     </div>
     <div class="discount-estimate" style="margin-top:16px;">
       <div>
@@ -471,6 +480,11 @@ function buildTactics(s, tier) {
     tactics.push({
       title: 'Leverage Your Vertex AI / Gemini Commitment for EA Improvement',
       desc: 'Google is aggressively competing for AI infrastructure share against AWS Bedrock and Azure OpenAI. Committing AI training and inference workloads to Vertex AI unlocks disproportionately large discounts because Google is subsidizing AI adoption. Explicitly tie your EA renewal to a Vertex AI consumption commitment. This also activates Google\'s Anthropic partnership — if you use Claude models, Vertex AI is the only way to access them at enterprise-grade SLAs.',
+      impact: 'high',
+    });
+    tactics.push({
+      title: 'Price Vertex AI as Its Own Line, Not Part of the Blended Rate',
+      desc: 'AI meters are growing faster than anything else in most Google estates while receiving the least negotiation scrutiny, which is exactly the combination that leaves value on the table. Ask for service-specific Vertex AI pricing rather than accepting your blended PPA rate: inside a CUD, Vertex AI typically lands 18–32% below published rates, and Provisioned Throughput inside a CUD reaches 38–52% below standalone on-demand. Provisioned Throughput is where the gap is widest, so if any portion of your inference load is steady enough to reserve, model it separately. Get the flexibility and burn-down terms for AI consumption in writing — these are increasingly settled in side letters rather than the base agreement, which means they are negotiable but also easy to lose track of.',
       impact: 'high',
     });
   } else {
@@ -764,7 +778,12 @@ function buildQuestions(s, tier) {
     'If we miss our annual commitment, how is the shortfall treated — cash true-up or roll-forward to the next period?',
   ];
   if (s.googleProducts.includes('workspace')) qs.push('What combined discount can you offer if we negotiate GCP and Google Workspace as a single CASC commitment?');
-  if (s.useCases.includes('vertex-ai') || s.strategicPlans?.includes('ai-expansion')) qs.push('We\'re expanding our Vertex AI workloads — what additional EA improvement or credits does that commitment unlock?');
+  if (s.useCases.includes('vertex-ai') || s.strategicPlans?.includes('ai-expansion')) {
+    qs.push('We\'re expanding our Vertex AI workloads — what additional EA improvement or credits does that commitment unlock?');
+    qs.push('What service-specific Vertex AI pricing can you offer inside a CUD, and what does Provisioned Throughput look like against standalone on-demand for our steady inference load?');
+    qs.push('What are the flexibility and burn-down terms for Vertex AI consumption against our commitment, and will those sit in the agreement itself rather than a side letter?');
+  }
+  qs.push('Now that spend-based CUDs bill as direct discounts rather than credits, can you model our scenarios at effective discounted rates so they reconcile against our billing export?');
   if (s.useCases.includes('bigquery')) qs.push('Can BigQuery flat-rate slot pricing be included in our EA at a negotiated rate rather than purchased post-signing?');
   qs.push('What migration credits and PSO hours are available for our migration plan, and are those additive to our EA discount or counted against it?');
   if (s.multicloud !== 'gcp-only') qs.push('We have workloads on AWS/Azure — what EA pricing would make consolidating those onto GCP financially compelling over 3 years?');
@@ -783,6 +802,12 @@ function buildAlerts(s, tier) {
   if (s.multicloud === 'gcp-only' && tier >= 2) alerts.push({ type: 'warning', icon: '⚡', text: '<strong>No Competitive Leverage.</strong> GCP holds only ~11% of enterprise cloud market share — Google\'s account teams have significant discount authority, but only when they believe you might actually consider an alternative. Get AWS or Azure pricing before your first meeting.' });
   if (!s.currentDiscounts.includes('sud') && (s.useCases.includes('compute') || s.useCases.includes('gke'))) alerts.push({ type: 'info', icon: 'ℹ️', text: '<strong>Are Sustained Use Discounts Active?</strong> SUDs apply automatically to Compute Engine VMs running &gt;25% of a billing month — no action required. Verify they are applying in your billing console. If not, check your VM configuration (custom machine types, preemptible, or certain committed VMs may not qualify).' });
   if (s.googleProducts.includes('workspace') && s.workspaceSpend !== 'none') alerts.push({ type: 'success', icon: '🟢', text: '<strong>Workspace Bundling Opportunity Detected.</strong> Your Google Workspace spend is a significant negotiating asset. Time your Workspace renewal to coincide with this GCP negotiation and request a combined CASC agreement — customers consistently report 15–20% better blended rates vs. negotiating separately.' });
+  if (s.useCases.includes('vertex-ai') || s.strategicPlans?.includes('ai-expansion')) {
+    alerts.push({ type: 'success', icon: '🤖', text: '<strong>Vertex AI Is Your Most Under-Negotiated Line Item.</strong> AI meters grow faster than anything else in most Google estates while getting the least scrutiny at the table. Inside a CUD, Vertex AI typically lands 18–32% below published rates, and Provisioned Throughput inside a CUD reaches 38–52% below standalone on-demand — so if any part of your inference load is steady enough to reserve, model it separately rather than accepting your blended PPA rate. Ask for the flexibility and burn-down terms in the agreement itself; these are increasingly settled in side letters, which makes them negotiable but easy to lose.' });
+  }
+  if (s.currentDiscounts.includes('cud-spend') || s.contractType === 'cud-spend' || s.contractType === 'cud-both') {
+    alerts.push({ type: 'info', icon: '🧾', text: '<strong>Spend-Based CUD Billing Changed — Check Your Savings Math.</strong> Google finished migrating spend-based CUDs to a direct-discount (multiprice) model in early 2026. Eligible usage is billed at the discounted rate rather than generating a separate credit to reconcile, so realized savings now appear directly in billing data. Any internal savings report, chargeback split, or CUD dashboard still written against credit reconciliation is measuring something that no longer exists — verify yours before using its numbers to size a new commitment.' });
+  }
   if (s.chargebackIsolation === 'project-scope') {
     alerts.push({ type: 'danger', icon: '🚨', text: '<strong>CUD Scope Change Affects Your Chargeback Model.</strong> As of June 16, 2026, GCP changed the default CUD sharing scope for new billing accounts to billing-account level — meaning resource-based CUDs now share automatically across all projects. If you are using project-scoped CUDs for internal cost chargeback (each team billed by project), your new CUD commitments may apply across projects you didn\'t intend to subsidize. Verify your billing account\'s CUD sharing settings before signing any new commitments, and consider creating separate billing accounts per team if strict project-level isolation is required.' });
   }
