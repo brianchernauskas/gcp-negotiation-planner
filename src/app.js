@@ -487,6 +487,11 @@ function buildTactics(s, tier) {
       desc: 'AI meters are growing faster than anything else in most Google estates while receiving the least negotiation scrutiny, which is exactly the combination that leaves value on the table. Ask for service-specific Vertex AI pricing rather than accepting your blended PPA rate: inside a CUD, Vertex AI typically lands 18–32% below published rates, and Provisioned Throughput inside a CUD reaches 38–52% below standalone on-demand. Provisioned Throughput is where the gap is widest, so if any portion of your inference load is steady enough to reserve, model it separately. Get the flexibility and burn-down terms for AI consumption in writing — these are increasingly settled in side letters rather than the base agreement, which means they are negotiable but also easy to lose track of.',
       impact: 'high',
     });
+    tactics.push({
+      title: 'Route Gemini Enterprise Seats Through a Flexible Savings Plan, Not List',
+      desc: 'Gemini Enterprise now has its own commitment vehicle, separate from Vertex AI CUDs: Flexible Savings Plans (FSPs) discount token costs 10% on a 1-year commitment and 20% on a 3-year commitment, with no minimum or maximum spend and month-to-month adjustment as usage grows. FSPs draw down against an existing Google Cloud EA, so they add to your total commitment rather than sitting outside it — fold projected Gemini Enterprise seat and agent-workload spend into your EA sizing rather than budgeting it separately at list. Also confirm the per-project spend caps and anomaly alerts Google ships alongside FSPs are configured before go-live; they are the main guardrail against an agent workload overrunning a fixed monthly commitment.',
+      impact: 'medium',
+    });
   } else {
     tactics.push({
       title: 'Commit to a Vertex AI Pilot to Unlock Additional Discount Authority',
@@ -782,6 +787,7 @@ function buildQuestions(s, tier) {
     qs.push('We\'re expanding our Vertex AI workloads — what additional EA improvement or credits does that commitment unlock?');
     qs.push('What service-specific Vertex AI pricing can you offer inside a CUD, and what does Provisioned Throughput look like against standalone on-demand for our steady inference load?');
     qs.push('What are the flexibility and burn-down terms for Vertex AI consumption against our commitment, and will those sit in the agreement itself rather than a side letter?');
+    qs.push('If we adopt Gemini Enterprise seats or agent workloads, does a Flexible Savings Plan draw down against our existing EA commitment, and what 1-year vs. 3-year discount can you confirm in writing?');
   }
   qs.push('Now that spend-based CUDs bill as direct discounts rather than credits, can you model our scenarios at effective discounted rates so they reconcile against our billing export?');
   if (s.useCases.includes('bigquery')) qs.push('Can BigQuery flat-rate slot pricing be included in our EA at a negotiated rate rather than purchased post-signing?');
