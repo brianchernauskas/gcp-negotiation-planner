@@ -109,6 +109,7 @@ document.querySelectorAll('.use-case-card').forEach(card => {
 });
 
 function generateStrategy() {
+  document.body.classList.remove('is-sample');
   if (!validateStep(4)) return;
   collectStep(4);
   document.getElementById('strategy-output').innerHTML = buildStrategyHTML(state);
@@ -749,6 +750,8 @@ function buildConcessions(s, tier) {
   if (tier >= 4) {
     items.push({ icon: '🏆', title: 'Named Google Executive Sponsor', desc: 'Director or VP-level Google sponsor with escalation path for contractual issues.', priority: 'should' });
   }
+  items.push({ icon: '📌', title: 'Pricing Schedule Freeze', desc: "Google agreements often reference the live SKU catalog and pricing pages. Pin those references to a dated snapshot so rates, and the definitions behind them, cannot change mid-term without a signed amendment.", priority: 'must' });
+  items.push({ icon: '📉', title: 'Price-Down (MFN) Trigger', desc: "If Google reduces published pricing on any SKU you consume, the lower rate applies automatically within 30 days with your CUD and agreement discounts still stacked on top.", priority: 'should' });
   return items;
 }
 
@@ -830,4 +833,78 @@ function buildAlerts(s, tier) {
     alerts.push({ type: 'success', icon: '🟢', text: '<strong>CASC in Place — Maximize It.</strong> Your active CASC entitles you to negotiate additional CUD discounts (3–7pp above public rates). Ensure your account team has applied this in your current CUD pricing, and reference it explicitly when discussing any new commitment or renewal.' });
   }
   return alerts;
+}
+
+// ─── Sample output ──────────────────────────────────────────────────────────
+// A fixed, illustrative client profile so advisors can show what the planner
+// produces without filling in the form. Kept deliberately consistent across the
+// AWS, Azure, GCP, and Salesforce planners.
+const SAMPLE_PROFILE = "Mid-market SaaS company · $10M–$25M annual GCP spend";
+const SAMPLE_STATE = {
+  "industry": "saas",
+  "growthRate": "moderate",
+  "spendGrowth": "moderate",
+  "renewalTimeline": "6-12mo",
+  "desiredTerm": "3yr",
+  "commitUtilization": "85-100",
+  "workloadType": "mixed",
+  "optimizationStatus": "partially",
+  "relationshipQuality": "moderate",
+  "compliance": [
+    "sox"
+  ],
+  "companySize": "midmarket",
+  "gcpTenure": "3-5",
+  "contractType": "cud-both",
+  "googleProducts": [
+    "workspace"
+  ],
+  "annualSpend": "10m-25m",
+  "workspaceSpend": "500k-2m",
+  "cudUtilization": "85-100",
+  "chargebackIsolation": "billing-account",
+  "flexCudFootprint": "vms-gke",
+  "casc": "no-eligible",
+  "currentDiscounts": [
+    "sud",
+    "cud-resource"
+  ],
+  "supportTier": "enhanced",
+  "useCases": [
+    "compute",
+    "gke",
+    "bigquery",
+    "databases"
+  ],
+  "spotVmUsage": "some",
+  "bigqueryPricing": "on-demand",
+  "multicloud": "gcp-primary",
+  "strategicPlans": [
+    "data-platform"
+  ],
+  "switchingFrom": "staying"
+};
+
+function sampleBannerHTML() {
+  return `<div class="sample-banner" role="note">
+    <span class="sample-tag">SAMPLE</span>
+    <div><strong>Sample output — illustrative data, not a client analysis.</strong>
+    Generated from a fixed example profile: ${SAMPLE_PROFILE}, 3-year term, renewal 6–12 months out.
+    Proxima deal calibration data is excluded. Use <em>Edit Inputs</em> to build a real strategy.</div>
+  </div>`;
+}
+
+function showSample() {
+  Object.keys(state).forEach(k => delete state[k]);
+  Object.assign(state, JSON.parse(JSON.stringify(SAMPLE_STATE)));
+  // Never let real logged deals appear inside sample output.
+  const realInsight = getProximaInsight;
+  getProximaInsight = () => null;
+  try {
+    document.getElementById('strategy-output').innerHTML = sampleBannerHTML() + buildStrategyHTML(state);
+  } finally {
+    getProximaInsight = realInsight;
+  }
+  document.body.classList.add('is-sample');
+  goToStep(5);
 }
