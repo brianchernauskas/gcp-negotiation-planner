@@ -493,6 +493,11 @@ function buildTactics(s, tier) {
       desc: 'Gemini Enterprise now has its own commitment vehicle, separate from Vertex AI CUDs: Flexible Savings Plans (FSPs) discount token costs 10% on a 1-year commitment and 20% on a 3-year commitment, with no minimum or maximum spend and month-to-month adjustment as usage grows. FSPs draw down against an existing Google Cloud EA, so they add to your total commitment rather than sitting outside it — fold projected Gemini Enterprise seat and agent-workload spend into your EA sizing rather than budgeting it separately at list. Also confirm the per-project spend caps and anomaly alerts Google ships alongside FSPs are configured before go-live; they are the main guardrail against an agent workload overrunning a fixed monthly commitment.',
       impact: 'medium',
     });
+    tactics.push({
+      title: 'Check Whether Your Gemini Enterprise Renewal Still Includes Code Assist',
+      desc: 'Since September 17, 2026, new and renewing Gemini Enterprise Standard and Plus subscriptions bought online no longer include Gemini Code Assist. Existing subscriptions keep it until the current term ends, and Google directs customers who want it back to sales. If developers rely on Code Assist through a Gemini Enterprise seat today, the renewal quietly removes it and a separate Code Assist quote will follow. Inventory Code Assist usage before the renewal date, and negotiate it back into the Gemini Enterprise price or the EA rather than accepting it as a new line at list.',
+      impact: 'medium',
+    });
   } else {
     tactics.push({
       title: 'Commit to a Vertex AI Pilot to Unlock Additional Discount Authority',
